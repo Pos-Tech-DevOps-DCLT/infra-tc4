@@ -61,11 +61,13 @@ spec:
             type: LoadBalancer
           resources:
             requests:
-              cpu: 50m
-              memory: 128Mi
+              cpu: 100m
+              memory: 192Mi
             limits:
-              cpu: 300m
-              memory: 256Mi
+              cpu: 500m
+              # 256Mi was OOMKilling under normal dashboard usage (multiple
+              # panels querying concurrently + plugin loading).
+              memory: 512Mi
           sidecar:
             dashboards:
               enabled: true
