@@ -21,17 +21,17 @@ helm upgrade --install argocd argo/argo-cd \
   --set server.service.type=LoadBalancer \
   --set configs.params."server\.insecure"=true \
   --set controller.resources.requests.cpu=100m \
-  --set controller.resources.requests.memory=256Mi \
-  --set controller.resources.limits.cpu=500m \
-  --set controller.resources.limits.memory=512Mi \
+  --set controller.resources.requests.memory=512Mi \
+  --set controller.resources.limits.cpu=1000m \
+  --set controller.resources.limits.memory=2Gi \
   --set server.resources.requests.cpu=50m \
   --set server.resources.requests.memory=64Mi \
   --set server.resources.limits.cpu=200m \
   --set server.resources.limits.memory=128Mi \
   --set repoServer.resources.requests.cpu=50m \
-  --set repoServer.resources.requests.memory=128Mi \
-  --set repoServer.resources.limits.cpu=300m \
-  --set repoServer.resources.limits.memory=256Mi \
+  --set repoServer.resources.requests.memory=256Mi \
+  --set repoServer.resources.limits.cpu=500m \
+  --set repoServer.resources.limits.memory=512Mi \
   --wait --timeout 5m
 
 echo ""
