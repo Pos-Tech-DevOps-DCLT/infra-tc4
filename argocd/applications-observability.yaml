@@ -59,6 +59,14 @@ spec:
         grafana:
           service:
             type: LoadBalancer
+          # Credenciais fixas num Secret criado fora do GitOps (kubectl, nao
+          # versionado). Sem isso o chart gera uma senha aleatoria nova a
+          # cada sync do ArgoCD (nao ha estado de release do Helm no
+          # GitOps), trocando a senha de acesso a cada reconciliacao.
+          admin:
+            existingSecret: prometheus-grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
           resources:
             requests:
               cpu: 100m
