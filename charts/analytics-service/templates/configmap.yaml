@@ -17,4 +17,4 @@ data:
   # Nome da tabela DynamoDB criada pelo Terraform
   AWS_DYNAMODB_TABLE: "tech-challenge-prod-analytics-events"
   # URL da fila SQS — obter com: terraform output -json connection_strings | jq '.sqs_queue_url'
-  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/375546530898/tech-challenge-prod-evaluation-events"
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/630013977255/tech-challenge-prod-evaluation-events"

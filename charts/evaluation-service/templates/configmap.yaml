@@ -16,4 +16,4 @@ data:
   FLAG_SERVICE_URL: "http://flag-service.flag-service.svc.cluster.local:8002"
   TARGETING_SERVICE_URL: "http://targeting-service.targeting-service.svc.cluster.local:8003"
   # URL da fila SQS — obter com: terraform output -json connection_strings | jq '.sqs_queue_url'
-  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/375546530898/tech-challenge-prod-evaluation-events"
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/630013977255/tech-challenge-prod-evaluation-events"
