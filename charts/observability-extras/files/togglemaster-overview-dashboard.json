@@ -1,0 +1,137 @@
+{
+  "title": "ToggleMaster - Visao Geral do Ecossistema",
+  "uid": "togglemaster-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "tags": ["togglemaster", "fase4"],
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Saude do Cluster",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Uso de CPU por No (%)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Uso de Memoria por No (%)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Pods por Namespace",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 9 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "count(kube_pod_info{namespace=~\"auth-service|flag-service|targeting-service|evaluation-service|analytics-service\"}) by (namespace)",
+          "legendFormat": "{{namespace}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Reinicios de Pods (ultima 1h)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 9 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"auth-service|flag-service|targeting-service|evaluation-service|analytics-service\"}[1h])) by (namespace, pod)",
+          "legendFormat": "{{namespace}}/{{pod}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "Microsservicos (via OTel - populado apos instrumentacao)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Taxa de Requisicoes HTTP por Servico (req/s)",
+      "description": "Depende da instrumentacao OpenTelemetry dos microsservicos (exportando para o OTel Collector -> Prometheus). Fica sem dados ate essa etapa ser concluida.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(http_server_duration_milliseconds_count{namespace=~\"auth-service|flag-service|targeting-service|evaluation-service|analytics-service\"}[5m])) by (service_name)",
+          "legendFormat": "{{service_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Logs em Tempo Real (via OTel Collector -> Loki)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 }
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "Logs dos Microsservicos",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 25 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{k8s_namespace_name=~\"auth-service|flag-service|targeting-service|evaluation-service|analytics-service\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

@@ -8,9 +8,9 @@ vpc_cidr           = "10.0.0.0/16"
 availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
 
 # EKS
-eks_cluster_version     = "1.32"
-eks_node_instance_types = ["t3.micro"]
-eks_node_desired_size   = 8
+eks_cluster_version     = "1.36"
+eks_node_instance_types = ["m7i-flex.large"]
+eks_node_desired_size   = 4
 eks_node_min_size       = 2
 eks_node_max_size       = 10
 eks_node_disk_size      = 20

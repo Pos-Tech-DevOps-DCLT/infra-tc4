@@ -1,0 +1,325 @@
+# Fase 4 — Stack de Observabilidade (Prometheus, Loki, OTel Collector, dashboards)
+#
+# Mantido em arquivo separado de applications.yaml (que referencia o repo
+# infra-tc3, usado pelas pipelines de CI/CD dos 5 microsserviços) para não
+# interferir no fluxo de GitOps já em produção. Aplicar com:
+#   kubectl apply -f argocd/applications-observability.yaml
+---
+# Prometheus + Grafana + Alertmanager (kube-prometheus-stack)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "91.8.2"
+    helm:
+      releaseName: prometheus
+      values: |
+        # No EBS CSI driver in this cluster (workloads are designed to be
+        # stateless — see modules/eks comment). Prometheus/Alertmanager fall
+        # back to emptyDir: fine for this lab/demo deployment, data does not
+        # survive a pod restart.
+        prometheus:
+          prometheusSpec:
+            retention: 3d
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+
+        prometheusOperator:
+          admissionWebhooks:
+            enabled: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+        grafana:
+          service:
+            type: LoadBalancer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: ALL
+          additionalDataSources:
+            - name: Loki
+              type: loki
+              uid: loki
+              access: proxy
+              url: http://loki.monitoring.svc.cluster.local:3100
+              jsonData:
+                maxLines: 1000
+
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+        kubeProxy:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Prometheus Operator's CRDs exceed the 262144-byte annotation limit
+      # that client-side apply hits via kubectl.kubernetes.io/last-applied-configuration.
+      - ServerSideApply=true
+---
+# Loki — centralização e indexação de logs (recebe via OTel Collector, nao via
+# Promtail/Grafana Agent)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: "7.3.0"
+    helm:
+      releaseName: loki
+      values: |
+        deploymentMode: SingleBinary
+
+        loki:
+          auth_enabled: false
+          commonConfig:
+            replication_factor: 1
+          storage:
+            type: filesystem
+          schemaConfig:
+            configs:
+              - from: "2024-01-01"
+                store: tsdb
+                object_store: filesystem
+                schema: v13
+                index:
+                  prefix: loki_index_
+                  period: 24h
+          limits_config:
+            allow_structured_metadata: true
+            retention_period: 24h
+
+        singleBinary:
+          replicas: 1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # No EBS CSI driver in this cluster — see note in kube-prometheus-stack
+          # above. The chart does not fall back to emptyDir automatically when
+          # persistence is disabled (it just omits the /var/loki mount), so we
+          # add one explicitly — logs are lost on pod restart.
+          persistence:
+            enabled: false
+          extraVolumes:
+            - name: storage
+              emptyDir: {}
+          extraVolumeMounts:
+            - name: storage
+              mountPath: /var/loki
+
+        write:
+          replicas: 0
+        read:
+          replicas: 0
+        backend:
+          replicas: 0
+
+        gateway:
+          enabled: false
+
+        test:
+          enabled: false
+
+        lokiCanary:
+          enabled: false
+
+        monitoring:
+          serviceMonitor:
+            enabled: true
+            labels:
+              release: prometheus
+          selfMonitoring:
+            enabled: false
+          lokiCanary:
+            enabled: false
+
+        chunksCache:
+          enabled: false
+        resultsCache:
+          enabled: false
+
+        minio:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+# OTel Collector — peça central de telemetria: recebe OTLP dos microsservicos
+# e logs de todos os containers do cluster (filelog), roteando metricas para o
+# Prometheus e logs para o Loki via ingestao OTLP nativa (Loki >= 3.x).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collector
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-collector
+    targetRevision: "0.174.0"
+    helm:
+      releaseName: otel-collector
+      values: |
+        mode: daemonset
+
+        image:
+          repository: otel/opentelemetry-collector-contrib
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
+
+        clusterRole:
+          create: true
+          rules:
+            - apiGroups: [""]
+              resources: ["pods", "namespaces", "nodes"]
+              verbs: ["get", "list", "watch"]
+            - apiGroups: ["apps"]
+              resources: ["replicasets"]
+              verbs: ["get", "list", "watch"]
+
+        presets:
+          logsCollection:
+            enabled: true
+            includeCollectorLogs: false
+          kubernetesAttributes:
+            enabled: true
+          hostMetrics:
+            enabled: true
+
+        config:
+          receivers:
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:4317
+                http:
+                  endpoint: 0.0.0.0:4318
+          exporters:
+            otlphttp/loki:
+              endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
+              tls:
+                insecure: true
+            prometheus:
+              endpoint: 0.0.0.0:8889
+          service:
+            pipelines:
+              logs:
+                exporters: [otlphttp/loki]
+              metrics:
+                exporters: [prometheus]
+              traces:
+                receivers: [otlp]
+                processors: [k8sattributes, batch]
+                # Placeholder until a APM (Datadog/New Relic) exporter is wired in a
+                # later step; a pipeline cannot have zero exporters.
+                exporters: [debug]
+
+        ports:
+          metrics:
+            enabled: true
+
+        service:
+          enabled: true
+
+        serviceMonitor:
+          enabled: true
+          extraLabels:
+            release: prometheus
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+# Dashboard customizado do Grafana (saude do cluster + request rate + logs)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-extras
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git
+    targetRevision: main
+    path: charts/observability-extras
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
