@@ -9,7 +9,7 @@ escrita no repositório GitOps e o ArgoCD sincroniza o cluster sozinho.
 ## O fluxo ponta a ponta
 
 ```
- repositório do microsserviço            repositório GitOps (infra-tc3)          cluster EKS
+ repositório do microsserviço            repositório GitOps (infra-tc4)          cluster EKS
 ┌──────────────────────────────┐        ┌──────────────────────────────┐        ┌──────────────┐
 │ push na main                 │        │                              │        │              │
 │   ↓                          │        │                              │        │              │
@@ -35,7 +35,7 @@ exatamente qual commit está rodando em produção e voltar atrás com seguranç
 ## Pré-requisito: o secret `GITOPS_TOKEN`
 
 O job roda no repositório do microsserviço, mas precisa **commitar em outro
-repositório** (`infra-tc3`). O `GITHUB_TOKEN` padrão não serve — ele só tem
+repositório** (`infra-tc4`). O `GITHUB_TOKEN` padrão não serve — ele só tem
 permissão no repositório que disparou o run. É preciso um PAT.
 
 ### Como criar
@@ -44,7 +44,7 @@ permissão no repositório que disparou o run. É preciso um PAT.
    **Personal access tokens** → **Fine-grained tokens** → *Generate new token*
 2. Preencha:
    - **Resource owner**: `Pos-Tech-DevOps-DCLT`
-   - **Repository access**: *Only select repositories* → `infra-tc3`
+   - **Repository access**: *Only select repositories* → `infra-tc4`
    - **Permissions** → *Repository permissions* → **Contents: Read and write**
      (só isso — nada além)
    - **Expiration**: a menor data que cubra a entrega
@@ -74,7 +74,7 @@ ao template reutilizável sem nenhuma alteração adicional.
 | Passo | O que faz | Falha quando |
 |:--|:--|:--|
 | Validar secret | Confere que `GITOPS_TOKEN` existe | Secret ausente ou vazio |
-| Checkout GitOps | Clona `infra-tc3` em `./gitops` com histórico completo | Token sem permissão de leitura |
+| Checkout GitOps | Clona `infra-tc4` em `./gitops` com histórico completo | Token sem permissão de leitura |
 | Calcular tag | `github.sha` → short SHA de 7 caracteres | — |
 | Atualizar values | Reescreve `image.tag` em `charts/<svc>/values.yaml` | Chart não existe, ou `tag:` não é única no arquivo |
 | Commit e push | Commita como `github-actions[bot]` e envia para a `main` | 5 tentativas de push rejeitadas |
@@ -101,7 +101,7 @@ dentro do mesmo repositório, então não resolve corrida entre repositórios
 diferentes. O push tenta 5 vezes, com `git pull --rebase` a cada rejeição.
 
 **Commit com `[skip ci]`.** Higiene: garante que o commit do bot nunca dispare
-uma pipeline, hoje ou quando o `infra-tc3` ganhar workflows de `push`.
+uma pipeline, hoje ou quando o `infra-tc4` ganhar workflows de `push`.
 
 **Idempotência.** Se a tag no `values.yaml` já for a nova, o job não commita e
 termina com sucesso — reexecutar o run não gera commit vazio.
@@ -114,7 +114,7 @@ termina com sucesso — reexecutar o run não gera commit vazio.
 
 1. Qualquer commit na `main` de um dos 5 repositórios de microsserviço.
 2. Acompanhe o run em **Actions** → job **7 · Atualizar GitOps (CD)**.
-3. Confirme no `infra-tc3` um commit novo do `github-actions[bot]`, com a
+3. Confirme no `infra-tc4` um commit novo do `github-actions[bot]`, com a
    mensagem `chore(<serviço>): atualiza image.tag para <sha7>` e diff de uma
    linha em `charts/<serviço>/values.yaml`.
 

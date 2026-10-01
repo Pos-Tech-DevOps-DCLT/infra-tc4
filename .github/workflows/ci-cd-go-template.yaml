@@ -399,12 +399,12 @@ jobs:
   # JOB 7 — Atualização automática do GitOps (CD)
   #
   # Escreve a tag da imagem recém-publicada no ECR em
-  # charts/<project>/values.yaml do repositório GitOps (infra-tc3).
+  # charts/<project>/values.yaml do repositório GitOps (infra-tc4).
   # O ArgoCD, com syncPolicy automated, detecta o commit e sincroniza
   # a nova versão no cluster sem nenhuma ação manual.
   #
   # Requer o secret GITOPS_TOKEN — PAT fine-grained com permissão
-  # "Contents: Read and write" no repositório infra-tc3. O GITHUB_TOKEN
+  # "Contents: Read and write" no repositório infra-tc4. O GITHUB_TOKEN
   # padrão NÃO serve: ele só tem poder no repositório que dispara o run.
   # ══════════════════════════════════════════════════════════════
   update-gitops:
@@ -422,7 +422,7 @@ jobs:
       cancel-in-progress: false
     env:
       PROJECT: ${{ inputs.project }}
-      GITOPS_REPO: Pos-Tech-DevOps-DCLT/infra-tc3
+      GITOPS_REPO: Pos-Tech-DevOps-DCLT/infra-tc4
     steps:
       - name: Validar secret GITOPS_TOKEN
         env:
@@ -437,7 +437,7 @@ jobs:
       - name: Checkout do repositório GitOps
         uses: actions/checkout@v4
         with:
-          repository: Pos-Tech-DevOps-DCLT/infra-tc3
+          repository: Pos-Tech-DevOps-DCLT/infra-tc4
           ref: main
           token: ${{ secrets.GITOPS_TOKEN }}
           path: gitops

@@ -35,7 +35,7 @@ aws eks describe-cluster-versions --region us-east-1 \
   ```bash
   aws eks update-kubeconfig --region us-east-1 --name tech-challenge-prod-eks
   ```
-- Working tree do `infra-tc3` limpo (`git status`) antes de começar.
+- Working tree do `infra-tc4` limpo (`git status`) antes de começar.
 - O node group precisa ter `version = var.cluster_version` no recurso
   `aws_eks_node_group.main` (`terraform/modules/eks/main.tf`). Sem isso, o
   Terraform sobe a versão do control plane mas os nós ficam presos na versão

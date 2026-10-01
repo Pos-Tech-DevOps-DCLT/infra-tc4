@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: infra-tc3-repo
+  name: infra-tc4-repo
   namespace: argocd
   labels:
     argocd.argoproj.io/secret-type: repository
 stringData:
   type: git
-  url: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc3.git
+  url: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git

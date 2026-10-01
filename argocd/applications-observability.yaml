@@ -1,8 +1,8 @@
 # Fase 4 — Stack de Observabilidade (Prometheus, Loki, OTel Collector, dashboards)
 #
-# Mantido em arquivo separado de applications.yaml (que referencia o repo
-# infra-tc3, usado pelas pipelines de CI/CD dos 5 microsserviços) para não
-# interferir no fluxo de GitOps já em produção. Aplicar com:
+# Mantido em arquivo separado de applications.yaml por organização (um arquivo
+# por responsabilidade: apps de negócio vs. stack de observabilidade). Aplicar
+# com:
 #   kubectl apply -f argocd/applications-observability.yaml
 ---
 # Prometheus + Grafana + Alertmanager (kube-prometheus-stack)

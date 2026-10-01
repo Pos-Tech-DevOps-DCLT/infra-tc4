@@ -1,7 +1,7 @@
 replicaCount: 0
 
 image:
-  repository: 375546530898.dkr.ecr.us-east-1.amazonaws.com/tech-challenge-prod/flag-service
+  repository: 630013977255.dkr.ecr.us-east-1.amazonaws.com/tech-challenge-prod/flag-service
   tag: "55f1719"
   pullPolicy: Always
 

@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc3.git
+    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git
     targetRevision: main
     path: charts/infrastructure
   destination:
@@ -30,7 +30,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc3.git
+    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git
     targetRevision: main
     path: charts/analytics-service
   destination:
@@ -52,7 +52,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc3.git
+    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git
     targetRevision: main
     path: charts/auth-service
   destination:
@@ -74,7 +74,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc3.git
+    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git
     targetRevision: main
     path: charts/evaluation-service
   destination:
@@ -96,7 +96,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc3.git
+    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git
     targetRevision: main
     path: charts/flag-service
   destination:
@@ -118,7 +118,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc3.git
+    repoURL: https://github.com/Pos-Tech-DevOps-DCLT/infra-tc4.git
     targetRevision: main
     path: charts/targeting-service
   destination:
