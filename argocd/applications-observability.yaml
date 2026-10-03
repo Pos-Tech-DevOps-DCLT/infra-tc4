@@ -214,9 +214,23 @@ spec:
     syncOptions:
       - CreateNamespace=true
 ---
-# OTel Collector — peça central de telemetria: recebe OTLP dos microsservicos
-# e logs de todos os containers do cluster (filelog), roteando metricas para o
-# Prometheus e logs para o Loki via ingestao OTLP nativa (Loki >= 3.x).
+# OTel Collector — peça central de telemetria (Fase 4, requisito 2).
+#
+# Fluxo:
+#   microsservicos --OTLP/HTTP (4318)--> otel-collector (DaemonSet, 1 por no)
+#     traces  -> debug (placeholder) / APM (Datadog ou New Relic — Membro 3)
+#     metrics -> exporter Prometheus (:8889) <- scrape via ServiceMonitor
+#     logs    -> Loki (ingestao OTLP nativa, /otlp)
+#   + filelog: logs de stdout de TODOS os outros containers do cluster -> Loki
+#
+# Os 5 microsservicos enviam os proprios logs via OTLP (com trace_id/span_id
+# para correlacao log <-> trace), por isso os namespaces deles sao excluidos do
+# filelog — senao cada linha chegaria duplicada no Loki.
+#
+# Os servicos apontam para o Service "otel-collector" (internalTrafficPolicy:
+# Local por padrao em modo daemonset), entao cada pod fala com o collector do
+# proprio no — requisito do k8sattributes, que em daemonset so observa os pods
+# do seu no. Padrao de env vars dos servicos: ver docs/OTEL.md.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -231,6 +245,10 @@ spec:
     helm:
       releaseName: otel-collector
       values: |
+        # Nome estavel e curto para o Service:
+        #   otel-collector.monitoring.svc.cluster.local
+        fullnameOverride: otel-collector
+
         mode: daemonset
 
         image:
@@ -241,8 +259,11 @@ spec:
             cpu: 100m
             memory: 128Mi
           limits:
-            cpu: 300m
-            memory: 256Mi
+            cpu: 500m
+            # 256Mi era suficiente so para filelog; com traces/metricas/logs
+            # OTLP dos 5 servicos passando por aqui, damos folga. O
+            # memory_limiter (80% do limit) protege contra OOMKill.
+            memory: 384Mi
 
         clusterRole:
           create: true
@@ -271,6 +292,37 @@ spec:
                   endpoint: 0.0.0.0:4317
                 http:
                   endpoint: 0.0.0.0:4318
+            # Mesclado sobre o receiver criado pelo preset logsCollection.
+            # Os microsservicos ja mandam logs via OTLP (ver cabecalho).
+            filelog:
+              exclude:
+                - /var/log/pods/monitoring_otel-collector*_*/opentelemetry-collector/*.log
+                - /var/log/pods/auth-service_*/*/*.log
+                - /var/log/pods/flag-service_*/*/*.log
+                - /var/log/pods/targeting-service_*/*/*.log
+                - /var/log/pods/evaluation-service_*/*/*.log
+                - /var/log/pods/analytics-service_*/*/*.log
+
+          processors:
+            # memory_limiter e batch ja vem com defaults do chart; repetidos
+            # aqui so para deixar o pipeline explicito.
+            memory_limiter:
+              check_interval: 5s
+              limit_percentage: 80
+              spike_limit_percentage: 25
+            batch:
+              send_batch_size: 1024
+              timeout: 5s
+            # Tags comuns a toda telemetria que passa pelo collector.
+            resource:
+              attributes:
+                - key: deployment.environment
+                  value: prod
+                  action: upsert
+                - key: k8s.cluster.name
+                  value: tech-challenge-prod-eks
+                  action: upsert
+
           exporters:
             otlphttp/loki:
               endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
@@ -278,22 +330,52 @@ spec:
                 insecure: true
             prometheus:
               endpoint: 0.0.0.0:8889
+              # Converte atributos de resource (service.name,
+              # k8s.namespace.name, k8s.pod.name...) em labels — sem isso as
+              # metricas chegam sem identificar de qual servico vieram.
+              resource_to_telemetry_conversion:
+                enabled: true
+              # Remove series de pods que sumiram (rollout/restart).
+              metric_expiration: 5m
+            debug:
+              verbosity: basic
+
           service:
             pipelines:
               logs:
+                receivers: [otlp]   # + filelog (adicionado pelo preset)
+                processors: [memory_limiter, k8sattributes, resource, batch]
                 exporters: [otlphttp/loki]
               metrics:
+                receivers: [otlp]   # + hostmetrics (adicionado pelo preset)
+                processors: [memory_limiter, k8sattributes, resource, batch]
                 exporters: [prometheus]
               traces:
                 receivers: [otlp]
-                processors: [k8sattributes, batch]
-                # Placeholder until a APM (Datadog/New Relic) exporter is wired in a
-                # later step; a pipeline cannot have zero exporters.
+                processors: [memory_limiter, k8sattributes, resource, batch]
+                # APM (Membro 3): adicionar aqui o exporter do Datadog ou
+                # New Relic (ex: [debug, datadog] ou [debug, otlphttp/newrelic]).
                 exporters: [debug]
 
         ports:
+          # Telemetria interna do proprio collector (otelcol_*)
           metrics:
             enabled: true
+          # Exporter Prometheus com as metricas dos microsservicos
+          prom-exporter:
+            enabled: true
+            containerPort: 8889
+            servicePort: 8889
+            protocol: TCP
+          # Nao usados — so OTLP. Evita abrir hostPorts a toa em cada no.
+          jaeger-compact:
+            enabled: false
+          jaeger-thrift:
+            enabled: false
+          jaeger-grpc:
+            enabled: false
+          zipkin:
+            enabled: false
 
         service:
           enabled: true
@@ -302,6 +384,28 @@ spec:
           enabled: true
           extraLabels:
             release: prometheus
+          # A ordem importa: o chart aplica metricRelabelings ao ULTIMO
+          # endpoint da lista (prom-exporter).
+          metricsEndpoints:
+            - port: metrics
+            - port: prom-exporter
+              interval: 15s
+              honorLabels: true
+          # O Prometheus rotula tudo que vem do collector com o namespace/pod
+          # DO COLLECTOR (monitoring/otel-collector-xxx). Para as metricas
+          # das apps, sobrescreve namespace/pod com os do servico de origem
+          # (vindos do OTel) — e o que o dashboard filtra.
+          metricRelabelings:
+            - sourceLabels: [k8s_namespace_name]
+              regex: (.+)
+              targetLabel: namespace
+              replacement: $1
+              action: replace
+            - sourceLabels: [k8s_pod_name]
+              regex: (.+)
+              targetLabel: pod
+              replacement: $1
+              action: replace
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
