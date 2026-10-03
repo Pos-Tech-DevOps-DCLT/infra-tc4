@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: 630013977255.dkr.ecr.us-east-1.amazonaws.com/tech-challenge-prod/auth-service
-  tag: "07e2294"
+  tag: "fb03e12"
   pullPolicy: Always
 
 service:
