@@ -2,7 +2,7 @@ replicaCount: 0
 
 image:
   repository: 630013977255.dkr.ecr.us-east-1.amazonaws.com/tech-challenge-prod/targeting-service
-  tag: "b30409b-fix2"
+  tag: "8860719"
   pullPolicy: Always
 
 service:
