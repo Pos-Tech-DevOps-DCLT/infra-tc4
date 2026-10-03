@@ -10,3 +10,12 @@ metadata:
     version: "1.0"
 data:
   PORT: "8001"
+
+  # --- OpenTelemetry (padrao comum aos 5 servicos — ver docs/OTEL.md) ---
+  OTEL_SERVICE_NAME: "auth-service"
+  # Service do collector (DaemonSet, internalTrafficPolicy: Local)
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+  OTEL_TRACES_SAMPLER: "parentbased_always_on"
+  OTEL_METRIC_EXPORT_INTERVAL: "15000"
+  OTEL_PROPAGATORS: "tracecontext,baggage"
