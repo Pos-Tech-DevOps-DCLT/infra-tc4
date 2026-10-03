@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: 630013977255.dkr.ecr.us-east-1.amazonaws.com/tech-challenge-prod/evaluation-service
-  tag: "648a77b"
+  tag: "e7ab5f5"
   pullPolicy: Always
 
 service:
