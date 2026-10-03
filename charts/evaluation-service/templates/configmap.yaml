@@ -17,3 +17,12 @@ data:
   TARGETING_SERVICE_URL: "http://targeting-service.targeting-service.svc.cluster.local:8003"
   # URL da fila SQS — obter com: terraform output -json connection_strings | jq '.sqs_queue_url'
   AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/630013977255/tech-challenge-prod-evaluation-events"
+
+  # --- OpenTelemetry (padrao comum aos 5 servicos — ver docs/OTEL.md) ---
+  OTEL_SERVICE_NAME: "evaluation-service"
+  # Service do collector (DaemonSet, internalTrafficPolicy: Local)
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+  OTEL_TRACES_SAMPLER: "parentbased_always_on"
+  OTEL_METRIC_EXPORT_INTERVAL: "15000"
+  OTEL_PROPAGATORS: "tracecontext,baggage"
