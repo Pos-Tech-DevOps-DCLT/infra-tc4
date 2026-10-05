@@ -8,7 +8,7 @@
  flag-service  ─┤        ┌──────────────── otel-collector (DaemonSet, 1 por nó) ────────────────┐
  targeting-svc ─┼──────▶ │ receivers   otlp, filelog*, hostmetrics                              │
  evaluation-svc─┤        │ processors  memory_limiter → k8sattributes → resource → batch        │
- analytics-svc ─┘        │ exporters   traces  → debug  (+ APM: Datadog/New Relic — Parte 3)    │
+ analytics-svc ─┘        │ exporters   traces  → debug + New Relic APM (OTLP) — ver APM.md      │
                          │             metrics → prometheus :8889 ◀── scrape (ServiceMonitor)   │
                          │             logs    → Loki /otlp                                     │
                          └──────────────────────────────────────────────────────────────────────┘
@@ -133,55 +133,11 @@ O nível (`severity`) vem do `logging` nos serviços Python; nos serviços Go
 (que usam `log.Printf` sem nível) é inferido pelo texto
 ("Erro"/"Falha" → ERROR, "Aviso"/"Atenção" → WARN, resto → INFO).
 
-## Para a Parte 3 (APM): ligar o exporter
+## Parte 3 (APM): New Relic
 
-Só o pipeline de traces muda — os serviços já mandam tudo para o Collector.
-Guardar a chave num Secret (fora do Git), expor via `extraEnvs` e trocar o
-`exporters: [debug]` do pipeline `traces`.
-
-**New Relic** (OTLP nativo):
-
-```yaml
-extraEnvs:
-  - name: NEW_RELIC_LICENSE_KEY
-    valueFrom: { secretKeyRef: { name: newrelic-license, key: license-key } }
-config:
-  exporters:
-    otlphttp/newrelic:
-      endpoint: https://otlp.nr-data.net
-      headers:
-        api-key: ${env:NEW_RELIC_LICENSE_KEY}
-  service:
-    pipelines:
-      traces:
-        exporters: [debug, otlphttp/newrelic]
-```
-
-**Datadog** (exporter + connector para as métricas de APM / Service Map):
-
-```yaml
-extraEnvs:
-  - name: DD_API_KEY
-    valueFrom: { secretKeyRef: { name: datadog-api-key, key: api-key } }
-config:
-  connectors:
-    datadog/connector: {}
-  exporters:
-    datadog:
-      api:
-        key: ${env:DD_API_KEY}
-        site: datadoghq.com   # ou us5.datadoghq.com etc., conforme a conta
-  service:
-    pipelines:
-      traces:
-        exporters: [debug, datadog/connector, datadog]
-      metrics/datadog:
-        receivers: [datadog/connector]
-        exporters: [datadog]
-```
-
-Logs e métricas também podem ir para o APM adicionando o exporter nos
-pipelines `logs`/`metrics` (opcional; o requisito pede traces no APM).
+Implementado: exporter `otlphttp/newrelic` no pipeline `traces`, com a license
+key vinda de um Secret fora do Git. Passo a passo, validação e justificativa da
+escolha (New Relic vs Datadog): **[APM.md](APM.md)**.
 
 ## Como validar no cluster (depois do sync do ArgoCD + deploy das imagens)
 
