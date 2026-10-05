@@ -19,6 +19,7 @@ TMP=$(mktemp -d)
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
 
 if [[ -z "${NEW_RELIC_LICENSE_KEY:-}" ]]; then
+  [[ -t 0 ]] || { echo "ERRO: sem terminal interativo para pedir a key. Rode num terminal normal ou exporte NEW_RELIC_LICENSE_KEY."; exit 1; }
   read -rsp "New Relic INGEST - LICENSE key: " NEW_RELIC_LICENSE_KEY; echo
 fi
 export NEW_RELIC_LICENSE_KEY

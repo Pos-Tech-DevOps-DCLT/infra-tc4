@@ -18,6 +18,7 @@ kubectl get nodes --no-headers | grep -q " Ready" \
 
 # 1. Secret (fora do Git). Recria se ja existir, para permitir trocar a key.
 if [[ -z "${NEW_RELIC_LICENSE_KEY:-}" ]]; then
+  [[ -t 0 ]] || { echo "ERRO: sem terminal interativo para pedir a key. Rode num terminal normal ou exporte NEW_RELIC_LICENSE_KEY."; exit 1; }
   read -rsp "New Relic INGEST - LICENSE key: " NEW_RELIC_LICENSE_KEY; echo
 fi
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
