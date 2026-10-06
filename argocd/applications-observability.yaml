@@ -251,6 +251,12 @@ spec:
 
         mode: daemonset
 
+        # Agente de no (como kube-proxy/CNI): se o no estiver sem CPU/memoria
+        # ao retomar a infra, o scheduler preempta um pod comum em vez de
+        # deixar o collector Pending — sem ele, os pods daquele no ficam sem
+        # telemetria (internalTrafficPolicy: Local).
+        priorityClassName: system-node-critical
+
         image:
           repository: otel/opentelemetry-collector-contrib
 
