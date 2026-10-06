@@ -218,7 +218,7 @@ spec:
 #
 # Fluxo:
 #   microsservicos --OTLP/HTTP (4318)--> otel-collector (DaemonSet, 1 por no)
-#     traces  -> debug (placeholder) / APM (Datadog ou New Relic — Membro 3)
+#     traces  -> New Relic APM (OTLP nativo) + debug
 #     metrics -> exporter Prometheus (:8889) <- scrape via ServiceMonitor
 #     logs    -> Loki (ingestao OTLP nativa, /otlp)
 #   + filelog: logs de stdout de TODOS os outros containers do cluster -> Loki
@@ -253,6 +253,20 @@ spec:
 
         image:
           repository: otel/opentelemetry-collector-contrib
+
+        # License key do New Relic (APM). Secret criado FORA do Git:
+        #   kubectl -n monitoring create secret generic newrelic-license \
+        #     --from-literal=license-key=<INGEST - LICENSE key>
+        # optional: true -> se o Secret ainda nao existir o collector sobe
+        # mesmo assim (so o export para o New Relic falha com 403); metricas
+        # e logs para Prometheus/Loki nao sao afetados. Ver docs/APM.md.
+        extraEnvs:
+          - name: NEW_RELIC_LICENSE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: newrelic-license
+                key: license-key
+                optional: true
 
         resources:
           requests:
@@ -339,6 +353,14 @@ spec:
               metric_expiration: 5m
             debug:
               verbosity: basic
+            # APM (Fase 4, requisito 3): New Relic recebe OTLP nativamente,
+            # sem exporter proprietario. O exporter acrescenta /v1/traces ao
+            # endpoint. Conta na regiao EU: https://otlp.eu01.nr-data.net
+            otlphttp/newrelic:
+              endpoint: https://otlp.nr-data.net
+              compression: gzip
+              headers:
+                api-key: ${env:NEW_RELIC_LICENSE_KEY}
 
           service:
             pipelines:
@@ -353,9 +375,9 @@ spec:
               traces:
                 receivers: [otlp]
                 processors: [memory_limiter, k8sattributes, resource, batch]
-                # APM (Membro 3): adicionar aqui o exporter do Datadog ou
-                # New Relic (ex: [debug, datadog] ou [debug, otlphttp/newrelic]).
-                exporters: [debug]
+                # debug: resumo por lote no log do collector (validacao);
+                # otlphttp/newrelic: APM (trace distribuido + Service Map).
+                exporters: [debug, otlphttp/newrelic]
 
         ports:
           # Telemetria interna do proprio collector (otelcol_*)
