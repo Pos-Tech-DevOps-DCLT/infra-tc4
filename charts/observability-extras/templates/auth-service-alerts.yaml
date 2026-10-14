@@ -1,9 +1,24 @@
 # Alerta de taxa de erro 5xx do auth-service (Alerting & Self-Healing — Membro 4)
 #
+# Por que o filtro inclui evaluation-service: quando o auth-service está
+# TOTALMENTE fora do ar (0 pods), ele não emite metrica nenhuma sobre si
+# mesmo — não existe "5xx do auth-service" para somar, o rate() dele fica
+# 0/0. Quem relata o problema nesse cenário é o chamador: evaluation-service
+# responde 502 quando a cadeia evaluation -> flag/targeting -> auth falha
+# (ver docs/OTEL.md). Sem esse segundo serviço no filtro, uma indisponibilidade
+# total do auth-service (o pior caso, justamente o que mais precisa de
+# self-healing) nunca dispararia este alerta — só falhas parciais com o
+# processo ainda de pé (ex.: erro ao gravar no Postgres em
+# POST /admin/keys, que o auth-service reporta como 500 nele mesmo).
+# Contrapartida aceita: um 502 no evaluation-service também pode ser causado
+# só pelo flag-service (sem relação com o auth), então este alerta perde um
+# pouco de precisão de causa-raiz em troca de cobrir o cenário de
+# indisponibilidade total — ver docs/ALERTING.md.
+#
 # Boas práticas de Alert Fatigue aplicadas aqui:
 #   - "for: 5m": só dispara se o erro persistir 5 minutos seguidos — ignora
 #     picos de 1-2 requisições que se auto-resolvem.
-#   - piso de tráfego (> 0.05 req/s somado nos 5 serviços): sem isso, 1 erro
+#   - piso de tráfego (> 0.05 req/s somado nos 2 serviços): sem isso, 1 erro
 #     numa única requisição já vira "100% de erro" num serviço quase sem
 #     tráfego, disparando por ruído estatístico em vez de incidente real.
 #   - label "service: auth-service": só esse label é roteado para o OpsGenie/
@@ -26,11 +41,11 @@ spec:
         - alert: AuthServiceHighErrorRate
           expr: |
             (
-              100 * sum(rate(http_server_duration_milliseconds_count{service_name="auth-service", http_status_code=~"5.."}[5m]))
-                  / sum(rate(http_server_duration_milliseconds_count{service_name="auth-service"}[5m]))
+              100 * sum(rate(http_server_duration_milliseconds_count{service_name=~"auth-service|evaluation-service", http_status_code=~"5.."}[5m]))
+                  / sum(rate(http_server_duration_milliseconds_count{service_name=~"auth-service|evaluation-service"}[5m]))
             ) > 5
             and
-            sum(rate(http_server_duration_milliseconds_count{service_name="auth-service"}[5m])) > 0.05
+            sum(rate(http_server_duration_milliseconds_count{service_name=~"auth-service|evaluation-service"}[5m])) > 0.05
           for: 5m
           labels:
             severity: critical
@@ -41,7 +56,8 @@ spec:
             # Helm NÃO avaliar como template dele — isso é preenchido pelo
             # Prometheus/Alertmanager na hora do alerta, não pelo `helm template`.
             description: >-
-              A taxa de erros 5xx do auth-service está em {{ `{{ $value | humanize }}` }}%
+              A taxa de erros 5xx do auth-service (ou do evaluation-service
+              falhando ao chamá-lo) está em {{ `{{ $value | humanize }}` }}%
               nos últimos 5 minutos (limite: 5%). Self-healing
               (kubectl rollout restart deployment/auth-service) acionado
               automaticamente — ver docs/ALERTING.md.
