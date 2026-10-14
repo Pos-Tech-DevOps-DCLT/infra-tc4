@@ -22,6 +22,12 @@ RESOLVED_COLOR = 3066993  # green
 
 def _post(url, payload, headers):
     data = json.dumps(payload).encode("utf-8")
+    # Without an explicit User-Agent, urllib sends "Python-urllib/x.y", which
+    # Cloudflare (fronting discord.com) and GitHub's API both block outright
+    # as a bot signature (Cloudflare error code 1010) — every outbound call
+    # was failing with a 403 before this was added, regardless of how correct
+    # the URL/token/payload were.
+    headers = {**headers, "User-Agent": "tech-challenge-incident-relay/1.0"}
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
