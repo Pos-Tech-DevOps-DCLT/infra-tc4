@@ -133,3 +133,15 @@ resource "aws_lambda_function_url" "incident_relay" {
   function_name      = aws_lambda_function.incident_relay.function_name
   authorization_type = "NONE"
 }
+
+# authorization_type = NONE on the function URL only controls whether AWS
+# *requires* SigV4 — it does NOT grant public invoke by itself. Without this
+# resource-based permission, every request (signed or not) gets a 403
+# AccessDeniedException straight from AWS, before incident_relay.py ever runs.
+resource "aws_lambda_permission" "incident_relay_public_url" {
+  statement_id           = "AllowPublicFunctionUrlInvoke"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.incident_relay.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
