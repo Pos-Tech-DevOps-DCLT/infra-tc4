@@ -37,8 +37,11 @@ spec:
             service: auth-service
           annotations:
             summary: "auth-service: taxa de erro HTTP 5xx acima de 5%"
+            # {{ `{{ $value | humanize }}` }}: escapado dos backticks para o
+            # Helm NÃO avaliar como template dele — isso é preenchido pelo
+            # Prometheus/Alertmanager na hora do alerta, não pelo `helm template`.
             description: >-
-              A taxa de erros 5xx do auth-service está em {{ $value | humanize }}%
+              A taxa de erros 5xx do auth-service está em {{ `{{ $value | humanize }}` }}%
               nos últimos 5 minutos (limite: 5%). Self-healing
               (kubectl rollout restart deployment/auth-service) acionado
               automaticamente — ver docs/ALERTING.md.
