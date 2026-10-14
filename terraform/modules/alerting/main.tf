@@ -145,3 +145,15 @@ resource "aws_lambda_permission" "incident_relay_public_url" {
   principal              = "*"
   function_url_auth_type = "NONE"
 }
+
+# AWS accounts created from ~2024 onward have a "block public access" default
+# for Lambda Function URLs: lambda:InvokeFunctionUrl alone is silently
+# insufficient to bypass it (still 403 AccessDeniedException at the edge,
+# before the function runs). A second, plain lambda:InvokeFunction
+# permission for principal "*" is what actually lifts the block.
+resource "aws_lambda_permission" "incident_relay_public_invoke" {
+  statement_id  = "AllowPublicInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.incident_relay.function_name
+  principal     = "*"
+}
