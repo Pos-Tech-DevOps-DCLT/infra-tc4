@@ -183,3 +183,27 @@ output "connection_strings" {
     }
   }
 }
+
+# ── Alerting & Self-Healing (Membro 4) ────────────────────────────────────────
+# See docs/ALERTING.md for what to do with each of these.
+output "self_healing_bot_access_key_id" {
+  description = "Access key ID for the self-healing-bot IAM user — GitHub secret SELF_HEALING_AWS_ACCESS_KEY_ID"
+  value       = module.alerting.self_healing_bot_access_key_id
+}
+
+output "self_healing_bot_secret_access_key" {
+  description = "Secret access key for the self-healing-bot IAM user — GitHub secret SELF_HEALING_AWS_SECRET_ACCESS_KEY"
+  value       = module.alerting.self_healing_bot_secret_access_key
+  sensitive   = true
+}
+
+output "incident_relay_function_url" {
+  description = "Lambda Function URL — set as the webhook_configs url for the Alertmanager 'incident-relay' receiver in argocd/applications-observability.yaml"
+  value       = module.alerting.incident_relay_function_url
+}
+
+output "incident_relay_shared_secret" {
+  description = "Bearer token Alertmanager must send to the relay — store as k8s Secret incident-relay-token"
+  value       = module.alerting.relay_shared_secret
+  sensitive   = true
+}

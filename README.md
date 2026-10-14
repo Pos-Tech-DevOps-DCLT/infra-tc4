@@ -28,6 +28,17 @@ Setup (the `GITOPS_TOKEN` secret), design decisions and troubleshooting:
 
 ---
 
+## Alerting & Self-Healing
+
+A Prometheus alert on the auth-service 5xx rate opens an incident in Jira
+Service Management (OpsGenie's alerting engine, now part of JSM), posts a
+detailed notification to Discord, and triggers a GitHub Action that runs
+`kubectl rollout restart` automatically.
+
+Setup, architecture and testing checklist: **[docs/ALERTING.md](docs/ALERTING.md)**.
+
+---
+
 ## Part 1 — Install the tools
 
 Install these on your machine before starting.

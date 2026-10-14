@@ -71,3 +71,12 @@ sqs_visibility_timeout        = 30
 sqs_message_retention_seconds = 86400   # 1 day
 sqs_enable_dlq                = true
 sqs_max_receive_count         = 3
+
+# ── Alerting & Self-Healing (Membro 4) — see docs/ALERTING.md ────────────────
+# Discord: canal → Editar canal → Integrações → Webhooks → Novo Webhook → Copiar URL
+discord_webhook_url = "https://discord.com/api/webhooks/XXXXXXXXXXXX/YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
+
+# PAT fine-grained com permissão "Contents: Read and write" neste repositório.
+# Pode reaproveitar o mesmo PAT já criado para o secret GITOPS_TOKEN.
+self_healing_github_repo  = "Pos-Tech-DevOps-DCLT/infra-tc4"
+self_healing_github_token = "github_pat_XXXXXXXXXXXXXXXXXXXXXX"

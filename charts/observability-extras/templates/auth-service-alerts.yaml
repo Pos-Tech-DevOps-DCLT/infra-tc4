@@ -1,0 +1,44 @@
+# Alerta de taxa de erro 5xx do auth-service (Alerting & Self-Healing — Membro 4)
+#
+# Boas práticas de Alert Fatigue aplicadas aqui:
+#   - "for: 5m": só dispara se o erro persistir 5 minutos seguidos — ignora
+#     picos de 1-2 requisições que se auto-resolvem.
+#   - piso de tráfego (> 0.05 req/s somado nos 5 serviços): sem isso, 1 erro
+#     numa única requisição já vira "100% de erro" num serviço quase sem
+#     tráfego, disparando por ruído estatístico em vez de incidente real.
+#   - label "service: auth-service": só esse label é roteado para o OpsGenie/
+#     relay no Alertmanager (ver argocd/applications-observability.yaml) — os
+#     alertas default do kube-prometheus-stack (Watchdog, etcd, scheduler...)
+#     continuam existindo mas não geram incidente nem notificação.
+#   - "repeat_interval: 4h" no Alertmanager evita reabrir o mesmo incidente a
+#     cada "group_interval" enquanto o problema persiste.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: auth-service-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: auth-service.rules
+      rules:
+        - alert: AuthServiceHighErrorRate
+          expr: |
+            (
+              100 * sum(rate(http_server_duration_milliseconds_count{service_name="auth-service", http_status_code=~"5.."}[5m]))
+                  / sum(rate(http_server_duration_milliseconds_count{service_name="auth-service"}[5m]))
+            ) > 5
+            and
+            sum(rate(http_server_duration_milliseconds_count{service_name="auth-service"}[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: auth-service
+          annotations:
+            summary: "auth-service: taxa de erro HTTP 5xx acima de 5%"
+            description: >-
+              A taxa de erros 5xx do auth-service está em {{ $value | humanize }}%
+              nos últimos 5 minutos (limite: 5%). Self-healing
+              (kubectl rollout restart deployment/auth-service) acionado
+              automaticamente — ver docs/ALERTING.md.

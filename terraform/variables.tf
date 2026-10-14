@@ -205,3 +205,22 @@ variable "sqs_max_receive_count" {
   type        = number
   default     = 3
 }
+
+# Alerting & Self-Healing (Membro 4) — see docs/ALERTING.md
+variable "discord_webhook_url" {
+  description = "Discord channel webhook URL for incident ChatOps notifications"
+  type        = string
+  sensitive   = true
+}
+
+variable "self_healing_github_repo" {
+  description = "owner/repo that hosts the self-healing GitHub Action (this repo)"
+  type        = string
+  default     = "Pos-Tech-DevOps-DCLT/infra-tc4"
+}
+
+variable "self_healing_github_token" {
+  description = "Fine-grained GitHub PAT ('Contents: Read and write' on self_healing_github_repo) used by the incident-relay Lambda to trigger repository_dispatch. Can reuse the same PAT created for GITOPS_TOKEN."
+  type        = string
+  sensitive   = true
+}

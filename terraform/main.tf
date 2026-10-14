@@ -103,5 +103,21 @@ module "irsa" {
   depends_on = [module.eks]
 }
 
+# ---------------------------------------------------------------------------
+# Alerting & Self-Healing (Membro 4) — see terraform/modules/alerting/main.tf
+# ---------------------------------------------------------------------------
+module "alerting" {
+  source = "./modules/alerting"
+
+  name_prefix         = local.name_prefix
+  cluster_name        = module.eks.cluster_name
+  cluster_arn         = module.eks.cluster_arn
+  discord_webhook_url = var.discord_webhook_url
+  github_repo         = var.self_healing_github_repo
+  github_token        = var.self_healing_github_token
+
+  depends_on = [module.eks]
+}
+
 # Helm charts (metrics-server, nginx-ingress, KEDA) are installed by
 # scripts/helm-install.sh after terraform apply completes.

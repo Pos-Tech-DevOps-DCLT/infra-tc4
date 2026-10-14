@@ -44,6 +44,56 @@ spec:
               limits:
                 cpu: 200m
                 memory: 128Mi
+            # Secrets criados fora do Git (mesmo padrao do newrelic-license /
+            # prometheus-grafana-admin acima). Montados em
+            # /etc/alertmanager/secrets/<nome>/<chave>. Ver docs/ALERTING.md.
+            secrets:
+              - opsgenie-api-key
+              - incident-relay-token
+          # Alerting & Self-Healing (Membro 4): so o alerta com label
+          # service=auth-service (PrometheusRule em
+          # charts/observability-extras/templates/auth-service-alerts.yaml) e
+          # roteado para o Jira Service Management (OpsGenie) e para o relay — qualquer outro alerta
+          # (Watchdog, regras default do kube-prometheus-stack) cai no
+          # receiver "null" e nao vira incidente nem notificacao.
+          config:
+            global:
+              resolve_timeout: 5m
+            route:
+              receiver: "null"
+              group_by: ["alertname", "service"]
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 4h
+              routes:
+                - receiver: opsgenie
+                  matchers:
+                    - service = "auth-service"
+                  continue: true
+                - receiver: incident-relay
+                  matchers:
+                    - service = "auth-service"
+                  continue: false
+            receivers:
+              - name: "null"
+              - name: opsgenie
+                opsgenie_configs:
+                  - api_key_file: /etc/alertmanager/secrets/opsgenie-api-key/api-key
+                    message: '{{ .CommonAnnotations.summary }}'
+                    description: '{{ .CommonAnnotations.description }}'
+                    source: alertmanager-tech-challenge
+                    priority: "P2"
+                    tags: '{{ .CommonLabels.service }},{{ .CommonLabels.severity }}'
+                    send_resolved: true
+              - name: incident-relay
+                webhook_configs:
+                  # Preencher apos "terraform apply":
+                  #   terraform output -raw incident_relay_function_url
+                  - url: "https://kbsqyxuxixhzkcsof2xfalcaji0ozybn.lambda-url.us-east-1.on.aws/"
+                    send_resolved: true
+                    http_config:
+                      authorization:
+                        credentials_file: /etc/alertmanager/secrets/incident-relay-token/token
 
         prometheusOperator:
           admissionWebhooks:

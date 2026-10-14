@@ -1,0 +1,51 @@
+name: Self-Healing — auth-service
+
+# Disparado pelo relay (AWS Lambda, terraform/modules/alerting) quando o
+# alerta AuthServiceHighErrorRate do Alertmanager entra em estado "firing"
+# (ver docs/ALERTING.md para o fluxo completo: Prometheus -> Alertmanager ->
+# Lambda -> aqui). O workflow_dispatch serve para testar o rollout restart
+# manualmente, sem esperar o alerta disparar de verdade.
+on:
+  repository_dispatch:
+    types: [auth-service-incident]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Motivo do restart manual (aparece no job summary)"
+        required: false
+        default: "teste manual"
+
+jobs:
+  restart-auth-service:
+    name: kubectl rollout restart deployment/auth-service
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS (self-healing-bot)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.SELF_HEALING_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.SELF_HEALING_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configurar kubeconfig
+        run: aws eks update-kubeconfig --name tech-challenge-prod-eks --region us-east-1
+
+      - name: Self-healing — reiniciar auth-service
+        run: ./scripts/self-heal-auth-service.sh
+
+      - name: Publicar resumo
+        if: always()
+        env:
+          SUMMARY: ${{ github.event.client_payload.commonAnnotations.summary }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          echo "## 🩹 Self-Healing — auth-service" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Item | Valor |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|:---|:---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Disparado por | \`${{ github.event_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Motivo | ${SUMMARY:-${REASON:-desconhecido}} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Resultado | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
