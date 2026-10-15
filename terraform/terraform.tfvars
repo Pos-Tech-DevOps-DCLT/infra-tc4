@@ -67,5 +67,8 @@ sqs_enable_dlq                = true
 sqs_max_receive_count         = 3
 
 #Alerting
-discord_webhook_url       =  
+discord_webhook_url       = 
 self_healing_github_token = 
+
+
+

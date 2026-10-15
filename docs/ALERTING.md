@@ -242,27 +242,21 @@ kubectl -n auth-service scale deployment/auth-service --replicas=1
 ```
 
 
-# 1. Cut auth-service's DB connectivity only (pod stays Running — /health doesn't touch the DB)
-kubectl apply -f /tmp/claude-1000/-home-gabri-Tech-Challenge-4-infra-tc4/a5c399f2-5004-4c9a-95c7-35997aec9869/scratchpad/block-auth-rds.yaml
-kubectl -n auth-service get pods   # should still show Running/Ready
+# 1. Pause ArgoCD auto-sync for auth-service
+kubectl -n argocd patch application auth-service --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":null}}}'
 
-# 2. Get the MASTER_KEY (run this yourself — I shouldn't see the value)
-MASTER_KEY=$(kubectl -n auth-service get secret auth-service-secret -o jsonpath='{.data.MASTER_KEY}' | base64 -d)
+# 2. Scale to zero
+kubectl -n auth-service scale deployment/auth-service --replicas=0
 
-# 3. Hit the ONE endpoint that returns a real 500 on DB failure: POST /admin/keys
+# 3. Generate traffic
 INGRESS_HOST=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-hey -z 6m -c 5 -m POST \
-  -H "Authorization: Bearer $MASTER_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"load-test-key"}' \
-  "http://$INGRESS_HOST/auth/admin/keys"
+hey -z 6m -c 5 "http://$INGRESS_HOST/evaluate/evaluate?user_id=u1&flag_name=demo"
 
-# 4. Watch Prometheus Alerts tab for AuthServiceHighErrorRate going Pending -> Firing (~5 min in)
-#    Then check OpsGenie, Discord, and `gh run list --workflow=self-healing-auth-service.yml`
-
-# 5. Cleanup — restore DB access once you've seen the full loop complete
-kubectl delete -f /tmp/claude-1000/-home-gabri-Tech-Challenge-4-infra-tc4/a5c399f2-5004-4c9a-95c7-35997aec9869/scratchpad/block-auth-rds.yaml
-
+# 4. Restore afterward
+kubectl -n auth-service scale deployment/auth-service --replicas=1
+kubectl -n argocd patch application auth-service --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}'
 
 
 
